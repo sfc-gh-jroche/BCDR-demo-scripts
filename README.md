@@ -1,12 +1,14 @@
-# Snowflake BCDR Demo Scripts
+## Snowflake BCDR Demo Scripts
 
-This repository contains comprehensive demo scripts showcasing Snowflake's **Business Continuity and Disaster Recovery (BCDR)** features using a synthetic healthcare dataset.
+This repository contains streamlined demo scripts showcasing Snowflake's **Business Continuity and Disaster Recovery (BCDR)** features using a synthetic healthcare dataset.
 
 ## 📋 Overview
 
 These scripts demonstrate two critical Snowflake features:
 1. **Backups** - Long-term, immutable storage for compliance and ransomware protection
 2. **Time Travel** - Short-term recovery for quick rollback of recent changes
+
+**Note**: These demos assume **Business Critical Edition** for full feature access, though most features work on all editions.
 
 ## 🗂️ Script Files
 
@@ -16,77 +18,86 @@ These scripts demonstrate two critical Snowflake features:
 **What it creates**:
 - `healthcare_demo` database
 - `patient_data` schema
-- 4 tables with realistic healthcare data:
+- 2 tables with realistic healthcare data:
   - `patients` - 10 patient demographic records
-  - `medical_records` - 11 visit records with diagnoses
-  - `prescriptions` - 9 active prescriptions
-  - `lab_results` - 9 laboratory test results
-- 2 views for reporting and analytics
+  - `medical_records` - 11 visit records with diagnoses and foreign key relationship
 
-**Run time**: ~30 seconds
+**Lines**: ~135 lines  
+**Run time**: ~15 seconds
 
 ### 2. `02_backup_demo.sql`
 **Purpose**: Demonstrate Snowflake's backup capabilities
 
 **Key concepts covered**:
-- Creating backup policies (daily, hourly, weekly schedules)
-- Creating backup sets for tables, schemas, and databases
-- Manual and automated backup creation
-- Simulating data corruption scenarios
-- Restoring from backups
-- Managing backup retention and expiration
-- Legal holds (Business Critical Edition feature)
-- Monitoring backup storage and operations
+- Creating backup policies with schedules and retention
+- Creating backup sets for tables and schemas
+- Manual backup creation before critical operations
+- Simulating data corruption and recovery workflow
+- Managing and monitoring backups
+- Understanding retention locks and legal holds
 
 **Features demonstrated**:
-- ✅ Scheduled backups with cron expressions
-- ✅ Retention policies (30-365 days)
-- ✅ Disaster recovery workflows
-- ✅ Backup storage management
-- ✅ Retention locks for immutable storage
-- ✅ Database, schema, and table-level backups
+- ✅ Scheduled backups with CRON expressions
+- ✅ Manual on-demand backups
+- ✅ Table and schema-level backups
+- ✅ Complete disaster recovery workflow
+- ✅ Retention locks for immutable storage (Business Critical)
+- ✅ Legal holds for compliance (Business Critical)
 
-**Run time**: ~3-5 minutes
+**Lines**: ~290 lines  
+**Run time**: ~2-3 minutes
 
 ### 3. `03_time_travel_demo.sql`
 **Purpose**: Demonstrate Snowflake's Time Travel feature
 
 **Key concepts covered**:
 - Configuring Time Travel retention (1-90 days)
-- Querying historical data using TIMESTAMP, OFFSET, and STATEMENT
+- Querying historical data using AT(TIMESTAMP)
 - Restoring deleted rows
-- Undropping tables and schemas
+- Undropping accidentally deleted tables
 - Creating audit trails by comparing current vs historical data
-- Rolling back multiple changes at once
-- Zero-copy cloning from historical points
+- Rolling back unwanted changes
 - Recovering from mass deletions
 
 **Features demonstrated**:
-- ✅ Point-in-time queries (AT, BEFORE)
+- ✅ Point-in-time queries with AT(TIMESTAMP)
 - ✅ UNDROP for deleted objects
 - ✅ Historical data comparison for auditing
-- ✅ Cloning from specific timestamps
+- ✅ Zero-copy cloning from historical points
 - ✅ Mass data recovery techniques
-- ✅ Automated recovery testing
 
-**Run time**: ~3-5 minutes
+**Lines**: ~315 lines  
+**Run time**: ~2-3 minutes
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Snowflake account (any edition)
-- ACCOUNTADMIN role or equivalent privileges to:
-  - Create databases and schemas
-  - Create backup policies and sets
-  - Configure Time Travel retention
-- SQL client (SnowSQL, Snowflake Web UI, or any SQL IDE)
+**Snowflake Account**:
+- **Business Critical Edition** (recommended for full feature access)
+- Enterprise Edition works for most features (except retention locks and legal holds)
+- Standard Edition works with limited Time Travel (1 day only)
+
+**Permissions**:
+- **ACCOUNTADMIN role** (simplest approach for demos), OR
+- Your role needs these privileges (granted by ACCOUNTADMIN):
+  ```sql
+  GRANT CREATE DATABASE ON ACCOUNT TO ROLE your_role;
+  GRANT CREATE BACKUP POLICY ON SCHEMA TO ROLE your_role;
+  GRANT CREATE BACKUP SET ON SCHEMA TO ROLE your_role;
+  GRANT APPLY BACKUP POLICY ON ACCOUNT TO ROLE your_role;
+  ```
+
+**SQL Client**:
+- Snowflake Web UI (Snowsight)
+- SnowSQL CLI
+- Any SQL IDE with Snowflake connector
 
 ### Edition Requirements
 
 | Feature | Standard | Enterprise | Business Critical |
 |---------|----------|------------|-------------------|
-| Backups | ✅ | ✅ | ✅ |
+| Backups (Basic) | ✅ | ✅ | ✅ |
 | Time Travel (1 day) | ✅ | ✅ | ✅ |
 | Time Travel (up to 90 days) | ❌ | ✅ | ✅ |
 | Retention Locks | ❌ | ❌ | ✅ |
@@ -107,24 +118,24 @@ Execute the scripts **in order**:
 @03_time_travel_demo.sql
 ```
 
-**Alternative**: Copy and paste sections into your SQL worksheet and run interactively.
+**Alternative**: Copy and paste sections into your SQL worksheet and run interactively for better understanding.
 
 ## 📖 Learning Objectives
 
 After completing these demos, you'll understand:
 
 ### Backups
+- ✅ Creating backup policies with CRON schedules
+- ✅ Creating backup sets for tables and schemas
 - ✅ When to use backups vs Time Travel
-- ✅ How to protect against ransomware with retention locks
-- ✅ Creating automated backup schedules
-- ✅ Restoring tables, schemas, and databases
+- ✅ Protecting against ransomware with retention locks
+- ✅ Restoring tables from backups after disasters
 - ✅ Meeting regulatory compliance requirements (SEC 17a-4, FINRA, HIPAA)
-- ✅ Monitoring backup storage costs
 
 ### Time Travel
 - ✅ Querying data as it existed in the past
 - ✅ Quick recovery from accidental changes
-- ✅ Building audit trails
+- ✅ Building audit trails with historical comparisons
 - ✅ Creating point-in-time clones for dev/test
 - ✅ Undropping accidentally deleted objects
 - ✅ Understanding storage implications
@@ -153,7 +164,7 @@ After completing these demos, you'll understand:
 - ✅ Long-term retention (months to years)
 - ✅ Regulatory compliance requiring immutable storage
 - ✅ Protection against ransomware
-- ✅ Cross-region disaster recovery
+- ✅ Cross-region disaster recovery (with replication)
 - ✅ Selective protection of critical tables only
 
 ### When to Use Time Travel
@@ -164,8 +175,9 @@ After completing these demos, you'll understand:
 - ✅ Automated, zero-configuration protection
 
 ### Best Practice: Use Both!
-- **Time Travel**: Day-to-day operations, quick recovery
-- **Backups**: Compliance, long-term retention, immutable storage
+- **Time Travel**: Day-to-day operations, quick recovery (automatic)
+- **Backups**: Compliance, long-term retention, immutable storage (scheduled)
+- **Together**: Complete BCDR strategy
 
 ## 📊 Cost Considerations
 
@@ -186,19 +198,22 @@ After completing these demos, you'll understand:
 To remove all demo objects after completion:
 
 ```sql
--- Drop the entire database (includes all tables, backups, and backup sets)
+-- Drop the entire database (includes all tables and backup sets)
 DROP DATABASE healthcare_demo;
 
--- Or keep the database and just remove backups
+-- Backup policies exist at schema level, so they're dropped with the database
+```
+
+If you want to keep the database but remove backups:
+
+```sql
+USE DATABASE healthcare_demo;
+USE SCHEMA patient_data;
+
 DROP BACKUP SET patients_backup_set;
-DROP BACKUP SET medical_records_backup_set;
-DROP BACKUP SET prescriptions_backup_set;
-DROP BACKUP SET patient_data_schema_backup_set;
-DROP BACKUP SET healthcare_db_backup_set;
+DROP BACKUP SET patient_data_schema_backup;
 DROP BACKUP POLICY daily_backup_policy;
-DROP BACKUP POLICY hourly_backup_policy;
-DROP BACKUP POLICY annual_backup_policy;
-DROP BACKUP POLICY database_backup_policy;
+DROP BACKUP POLICY manual_backup_policy;
 ```
 
 ## 📚 Additional Resources
@@ -217,17 +232,13 @@ DROP BACKUP POLICY database_backup_policy;
 4. **Test regularly**: Practice recovery procedures quarterly
 5. **Monitor costs**: Review storage usage regularly in production
 
-## 🤝 Contributing
+## 🤝 Feedback
 
-This is a demo repository. Feel free to:
+This is a demo repository designed for learning. Feel free to:
 - Adapt for your industry (finance, retail, manufacturing, etc.)
 - Add additional scenarios
 - Extend with more complex data relationships
-- Integrate with other Snowflake features (Streams, Tasks, etc.)
-
-## 📄 License
-
-These scripts are provided as educational examples for Snowflake BCDR features.
+- Integrate with other Snowflake features (Streams, Tasks, Replication, etc.)
 
 ---
 

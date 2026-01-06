@@ -3,9 +3,13 @@
 -- ============================================================================
 -- Purpose: Create synthetic healthcare dataset for demonstrating Snowflake's
 --          Business Continuity and Disaster Recovery (BCDR) features
--- Author: Snowflake Demo
--- Date: 2026-01-06
+-- Documentation: https://docs.snowflake.com/en/user-guide/backups
+--                https://docs.snowflake.com/en/user-guide/data-time-travel
 -- ============================================================================
+
+-- NOTE: This demo assumes Business Critical Edition for full feature access
+-- Backups are available in all editions
+-- Time Travel > 1 day requires Enterprise or Business Critical Edition
 
 -- Create a dedicated database for our demo
 CREATE OR REPLACE DATABASE healthcare_demo;
@@ -91,131 +95,25 @@ VALUES
     (10, '2026-01-02', 'Z12.31', 'Screening mammogram', 'Dr. Maria Santos', 'Radiology', 'Preventive', 'Mammogram completed. Results normal. Next screening in 1 year.');
 
 -- ============================================================================
--- TABLE 3: PRESCRIPTIONS
--- ============================================================================
--- This table stores prescription medication information
-
-CREATE OR REPLACE TABLE prescriptions (
-    prescription_id INT AUTOINCREMENT PRIMARY KEY,
-    patient_id INT,
-    record_id INT,
-    medication_name VARCHAR(200),
-    dosage VARCHAR(50),
-    frequency VARCHAR(100),
-    start_date DATE,
-    end_date DATE,
-    prescribing_physician VARCHAR(100),
-    refills_remaining INT,
-    pharmacy VARCHAR(100),
-    status VARCHAR(20),
-    created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
-    updated_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
-    FOREIGN KEY (patient_id) REFERENCES patients(patient_id),
-    FOREIGN KEY (record_id) REFERENCES medical_records(record_id)
-);
-
--- Insert synthetic prescription records
-INSERT INTO prescriptions (patient_id, record_id, medication_name, dosage, frequency, start_date, end_date, prescribing_physician, refills_remaining, pharmacy, status)
-VALUES
-    (1, 1, 'Lisinopril', '10mg', 'Once daily', '2025-12-15', '2026-06-15', 'Dr. Amanda Chen', 5, 'CVS Pharmacy - Boston', 'Active'),
-    (1, 2, 'Metformin', '500mg', 'Twice daily with meals', '2025-11-20', '2026-05-20', 'Dr. Robert Park', 3, 'CVS Pharmacy - Boston', 'Active'),
-    (2, 3, 'Amoxicillin', '500mg', 'Three times daily', '2025-12-28', '2026-01-08', 'Dr. Sarah Williams', 0, 'Walgreens - Cambridge', 'Active'),
-    (3, 4, 'Ibuprofen', '600mg', 'Every 6 hours as needed', '2025-12-10', '2026-01-10', 'Dr. James Kumar', 0, 'Rite Aid - Somerville', 'Active'),
-    (5, 6, 'Furosemide', '40mg', 'Once daily in morning', '2025-11-30', '2026-05-30', 'Dr. Amanda Chen', 5, 'Stop & Shop Pharmacy - Newton', 'Active'),
-    (5, 6, 'Carvedilol', '12.5mg', 'Twice daily', '2025-11-30', '2026-05-30', 'Dr. Amanda Chen', 5, 'Stop & Shop Pharmacy - Newton', 'Active'),
-    (6, 7, 'Prenatal Vitamins', '1 tablet', 'Once daily', '2025-12-18', '2026-09-18', 'Dr. Maria Santos', 8, 'CVS Pharmacy - Waltham', 'Active'),
-    (8, 9, 'Sertraline', '50mg', 'Once daily', '2025-12-20', '2026-06-20', 'Dr. Lisa Patterson', 5, 'Walgreens - Medford', 'Active'),
-    (9, 10, 'Albuterol Inhaler', '90mcg', '2 puffs every 4-6 hours as needed', '2025-12-29', '2026-06-29', 'Dr. Robert Park', 3, 'CVS Pharmacy - Arlington', 'Active');
-
--- ============================================================================
--- TABLE 4: LAB_RESULTS
--- ============================================================================
--- This table stores laboratory test results
-
-CREATE OR REPLACE TABLE lab_results (
-    lab_id INT AUTOINCREMENT PRIMARY KEY,
-    patient_id INT,
-    record_id INT,
-    test_name VARCHAR(200),
-    test_code VARCHAR(20),
-    result_value VARCHAR(50),
-    unit_of_measure VARCHAR(20),
-    reference_range VARCHAR(50),
-    status VARCHAR(20),
-    abnormal_flag BOOLEAN,
-    test_date TIMESTAMP_LTZ,
-    result_date TIMESTAMP_LTZ,
-    performing_lab VARCHAR(100),
-    created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
-    FOREIGN KEY (patient_id) REFERENCES patients(patient_id),
-    FOREIGN KEY (record_id) REFERENCES medical_records(record_id)
-);
-
--- Insert synthetic lab results
-INSERT INTO lab_results (patient_id, record_id, test_name, test_code, result_value, unit_of_measure, reference_range, status, abnormal_flag, test_date, result_date, performing_lab)
-VALUES
-    (1, 1, 'Hemoglobin A1C', 'HBA1C', '6.8', '%', '4.0-5.6', 'Final', TRUE, '2025-11-20 08:30:00', '2025-11-20 14:45:00', 'Quest Diagnostics'),
-    (1, 1, 'Fasting Glucose', 'GLU', '125', 'mg/dL', '70-100', 'Final', TRUE, '2025-11-20 08:30:00', '2025-11-20 14:45:00', 'Quest Diagnostics'),
-    (1, 1, 'Total Cholesterol', 'CHOL', '198', 'mg/dL', '<200', 'Final', FALSE, '2025-11-20 08:30:00', '2025-11-20 14:45:00', 'Quest Diagnostics'),
-    (1, 1, 'LDL Cholesterol', 'LDL', '115', 'mg/dL', '<100', 'Final', TRUE, '2025-11-20 08:30:00', '2025-11-20 14:45:00', 'Quest Diagnostics'),
-    (4, 5, 'Complete Blood Count', 'CBC', 'Normal', 'N/A', 'Normal ranges', 'Final', FALSE, '2025-12-22 09:00:00', '2025-12-22 16:30:00', 'LabCorp'),
-    (4, 5, 'Thyroid Stimulating Hormone', 'TSH', '2.1', 'mIU/L', '0.4-4.0', 'Final', FALSE, '2025-12-22 09:00:00', '2025-12-22 16:30:00', 'LabCorp'),
-    (5, 6, 'B-type Natriuretic Peptide', 'BNP', '425', 'pg/mL', '<100', 'Final', TRUE, '2025-11-30 10:15:00', '2025-11-30 18:00:00', 'Quest Diagnostics'),
-    (5, 6, 'Creatinine', 'CREAT', '1.3', 'mg/dL', '0.7-1.3', 'Final', FALSE, '2025-11-30 10:15:00', '2025-11-30 18:00:00', 'Quest Diagnostics'),
-    (6, 7, 'hCG Quantitative', 'HCG', '15240', 'mIU/mL', 'Varies by trimester', 'Final', FALSE, '2025-12-18 11:00:00', '2025-12-18 19:30:00', 'LabCorp');
-
--- ============================================================================
--- Create some useful views for reporting
+-- Verify data creation
 -- ============================================================================
 
--- View: Complete patient summary with latest visit information
-CREATE OR REPLACE VIEW patient_summary AS
+-- Show record counts for both tables
+SELECT 'Patients' AS table_name, COUNT(*) AS record_count FROM patients
+UNION ALL
+SELECT 'Medical Records', COUNT(*) FROM medical_records;
+
+-- Display sample data
 SELECT 
     p.patient_id,
     p.first_name || ' ' || p.last_name AS patient_name,
     p.date_of_birth,
-    DATEDIFF('year', p.date_of_birth, CURRENT_DATE()) AS age,
-    p.gender,
     p.insurance_provider,
-    COUNT(DISTINCT mr.record_id) AS total_visits,
-    MAX(mr.visit_date) AS last_visit_date,
-    COUNT(DISTINCT pr.prescription_id) AS active_prescriptions
+    COUNT(mr.record_id) AS total_visits
 FROM patients p
 LEFT JOIN medical_records mr ON p.patient_id = mr.patient_id
-LEFT JOIN prescriptions pr ON p.patient_id = pr.patient_id AND pr.status = 'Active'
-GROUP BY p.patient_id, p.first_name, p.last_name, p.date_of_birth, p.gender, p.insurance_provider;
-
--- View: Patients with chronic conditions requiring ongoing monitoring
-CREATE OR REPLACE VIEW chronic_care_patients AS
-SELECT 
-    p.patient_id,
-    p.first_name || ' ' || p.last_name AS patient_name,
-    mr.diagnosis_description,
-    mr.treating_physician,
-    mr.visit_date AS last_visit,
-    COUNT(pr.prescription_id) AS medication_count
-FROM patients p
-JOIN medical_records mr ON p.patient_id = mr.patient_id
-LEFT JOIN prescriptions pr ON mr.record_id = pr.record_id
-WHERE mr.diagnosis_code IN ('I10', 'E11.9', 'I50.9', 'J45.909', 'F41.1')
-GROUP BY p.patient_id, p.first_name, p.last_name, mr.diagnosis_description, mr.treating_physician, mr.visit_date;
-
--- ============================================================================
--- Verify data creation
--- ============================================================================
-
--- Show record counts
-SELECT 'Patients' AS table_name, COUNT(*) AS record_count FROM patients
-UNION ALL
-SELECT 'Medical Records', COUNT(*) FROM medical_records
-UNION ALL
-SELECT 'Prescriptions', COUNT(*) FROM prescriptions
-UNION ALL
-SELECT 'Lab Results', COUNT(*) FROM lab_results;
-
--- Display sample data from patient summary view
-SELECT * FROM patient_summary
-ORDER BY patient_id
+GROUP BY p.patient_id, p.first_name, p.last_name, p.date_of_birth, p.insurance_provider
+ORDER BY p.patient_id
 LIMIT 5;
 
 -- ============================================================================
@@ -224,12 +122,8 @@ LIMIT 5;
 -- You now have a synthetic healthcare dataset with:
 --   - 10 patients with demographic information
 --   - 11 medical records with diagnoses and visit notes
---   - 9 active prescriptions
---   - 9 lab test results
---   - 2 reporting views
 --
 -- Next steps:
 --   1. Run script 02_backup_demo.sql to learn about Snowflake backups
 --   2. Run script 03_time_travel_demo.sql to learn about Time Travel
 -- ============================================================================
-
