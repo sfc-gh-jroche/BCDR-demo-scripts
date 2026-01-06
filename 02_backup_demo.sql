@@ -67,10 +67,10 @@ SHOW BACKUP POLICIES;
 -- Example: Backup policy with RETENTION LOCK (Business Critical Edition only)
 -- RETENTION LOCK is IRREVERSIBLE - backups cannot be deleted even by ACCOUNTADMIN
 -- Uncomment to enable (requires Business Critical Edition):
--- CREATE OR REPLACE BACKUP POLICY compliance_backup_policy
---     SCHEDULE = 'USING CRON 0 1 * * 0 America/New_York'  -- Weekly on Sunday at 1 AM
---     EXPIRE_AFTER_DAYS = 2555  -- 7 years for regulatory compliance
---     RETENTION_LOCK = TRUE;  -- Makes backups immutable!
+CREATE OR REPLACE BACKUP POLICY compliance_backup_policy
+     SCHEDULE = 'USING CRON 0 1 * * 0 America/New_York'  -- Weekly on Sunday at 1 AM
+     EXPIRE_AFTER_DAYS = 2555  -- 7 years for regulatory compliance
+     RETENTION_LOCK = TRUE;  -- Makes backups immutable!
 
 -- ============================================================================
 -- PART 3: CREATE BACKUP SETS
@@ -81,13 +81,13 @@ SHOW BACKUP POLICIES;
 -- Backup Set 1: Table-level backup for patients table
 CREATE OR REPLACE BACKUP SET patients_backup_set
     FOR TABLE patients
-    WITH BACKUP_POLICY daily_backup_policy;
+    WITH BACKUP POLICY daily_backup_policy;
 
 -- Backup Set 2: Schema-level backup (captures all objects in the schema)
 -- This backs up all tables, views, and other schema objects together
 CREATE OR REPLACE BACKUP SET patient_data_schema_backup
     FOR SCHEMA patient_data
-    WITH BACKUP_POLICY manual_backup_policy;
+    WITH BACKUP POLICY manual_backup_policy;
 
 -- View all backup sets we created
 SHOW BACKUP SETS;
@@ -102,16 +102,11 @@ DESCRIBE BACKUP SET patients_backup_set;
 
 -- Create a manual backup of the patients table
 ALTER BACKUP SET patients_backup_set
-    ADD BACKUP
-    COMMENT = 'Before demo modifications';
+    ADD BACKUP;
 
 -- Create a schema-level backup
 ALTER BACKUP SET patient_data_schema_backup
-    ADD BACKUP
-    COMMENT = 'Pre-demo baseline snapshot';
-
--- Wait for backups to complete
-CALL SYSTEM$WAIT(5);
+    ADD BACKUP;
 
 -- View all backups in a backup set
 SHOW BACKUPS IN BACKUP SET patients_backup_set;
@@ -120,7 +115,7 @@ SHOW BACKUPS IN BACKUP SET patients_backup_set;
 --   - BACKUP_ID: Unique identifier
 --   - CREATED_ON: Timestamp of creation
 --   - EXPIRES_ON: When it will be auto-deleted
---   - BACKUP_SIZE: Storage used
+--   - IS_UNDER_LEGAL_HOLD
 
 -- ============================================================================
 -- PART 5: DISASTER SCENARIO - ACCIDENTAL DATA CORRUPTION
@@ -135,9 +130,6 @@ WHERE patient_id = 1;
 
 -- Store current timestamp for later reference
 SET disaster_timestamp = (SELECT CURRENT_TIMESTAMP()::STRING);
-
--- Wait to ensure timestamp separation
-CALL SYSTEM$WAIT(2);
 
 -- DISASTER STRIKES! Accidental data corruption
 UPDATE patients 
@@ -170,19 +162,14 @@ WHERE patient_id = 1;
 SHOW BACKUPS IN BACKUP SET patients_backup_set;
 
 -- Step 2: Get the BACKUP_ID from the output above
--- For automation in this demo, we'll get the most recent backup before disaster
-SET backup_to_restore = (
-    SELECT TOP 1 "id" as backup_id
-    FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))
-    WHERE "created_on" <= $disaster_timestamp
-    ORDER BY "created_on" DESC
-);
+
+SET backup_to_restore = '894d72ed-9b44-4019-98c4-d791b645758e';--INSERT backup_id FROM LAST QUERY'S RESULTS HERE
 
 -- Step 3: Restore the table from backup
 -- IMPORTANT: Must restore to a NEW table name (cannot overwrite existing table)
 CREATE TABLE patients_restored
     FROM BACKUP SET patients_backup_set
-    BACKUP_ID => IDENTIFIER($backup_to_restore);
+    IDENTIFIER $backup_to_restore;
 
 -- Step 4: Verify the restored data
 SELECT 'RESTORED - Clean Data' AS status,
@@ -229,11 +216,11 @@ DROP TABLE patients_restored;
 
 -- Suspend automatic backups on a backup set (stops scheduled backups)
 ALTER BACKUP SET patients_backup_set
-    SUSPEND;
+    SUSPEND BACKUP POLICY;
 
 -- Resume automatic backups
 ALTER BACKUP SET patients_backup_set
-    RESUME;
+    RESUME BACKUP POLICY;
 
 -- Modify a backup policy (affects all backup sets using this policy)
 ALTER BACKUP POLICY daily_backup_policy
@@ -252,60 +239,47 @@ ALTER BACKUP POLICY daily_backup_policy
 -- ============================================================================
 
 -- View backup information using Information Schema
-SELECT 
-    backup_set_name,
-    object_type,
-    object_name,
-    policy_name,
-    is_suspended
+SELECT *
 FROM INFORMATION_SCHEMA.BACKUP_SETS
 WHERE backup_set_schema = 'PATIENT_DATA';
 
 -- View individual backups
-SELECT 
-    backup_set_name,
-    id AS backup_id,
-    created_on,
-    expires_on,
-    comment
+SELECT *
 FROM INFORMATION_SCHEMA.BACKUPS
 WHERE backup_set_schema = 'PATIENT_DATA'
-ORDER BY created_on DESC;
+ORDER BY created DESC;
 
 -- View backup policies
-SELECT 
-    name AS policy_name,
-    schedule,
-    expire_after_days,
-    retention_lock
+SELECT *
 FROM INFORMATION_SCHEMA.BACKUP_POLICIES
-WHERE policy_database = 'HEALTHCARE_DEMO';
+WHERE backup_policy_catalog = 'HEALTHCARE_DEMO';
 
 -- Check backup storage usage (Account Usage - has latency up to 45 min)
--- SELECT 
---     database_name,
---     SUM(backup_bytes) / 1024 / 1024 / 1024 AS backup_storage_gb
--- FROM SNOWFLAKE.ACCOUNT_USAGE.BACKUP_STORAGE_USAGE
--- WHERE database_name = 'HEALTHCARE_DEMO'
--- GROUP BY database_name;
+ SELECT *
+ FROM SNOWFLAKE.ACCOUNT_USAGE.BACKUP_STORAGE_USAGE;
 
 -- ============================================================================
 -- PART 9: LEGAL HOLDS (Business Critical Edition)
 -- ============================================================================
 -- Legal holds prevent backups from being deleted, even after expiration
 -- Used for litigation, regulatory investigations, or compliance
+-- Can only be removed by USERS with special APPLY LEGAL HOLD privileges
+-- DO NOT run the following commands as part of this demo. They are here for educational purposes.
 
--- Add a legal hold to a specific backup (requires Business Critical)
--- ALTER BACKUP SET patients_backup_set
---     ADD LEGAL HOLD TO BACKUP '<backup_id>'
---     COMMENT = 'Legal case #2026-001 - Do not delete';
+-- Add a legal hold to a specific backup
+ALTER BACKUP SET <backup_set_name>
+  MODIFY BACKUP IDENTIFIER '<backup_identifier>'
+  ADD LEGAL HOLD;
 
 -- View legal holds
--- SHOW LEGAL HOLDS ON BACKUP SET patients_backup_set;
+SHOW BACKUPS IN BACKUP SET <backup_set_name>
+  ->> SELECT * FROM $1 WHERE "is_under_legal_hold" = 'Y';
 
--- Remove a legal hold (when legal requirement is lifted)
--- ALTER BACKUP SET patients_backup_set
---     DROP LEGAL HOLD FROM BACKUP '<backup_id>';
+-- Remove a legal hold (when legal requirement is lifted) 
+ALTER BACKUP SET <backup_set_name>
+  MODIFY BACKUP IDENTIFIER '<backup_identifier>'
+  REMOVE LEGAL HOLD;
+
 
 -- ============================================================================
 -- PART 10: BEST PRACTICES
@@ -316,7 +290,7 @@ WHERE policy_database = 'HEALTHCARE_DEMO';
 --    - Archive data: Monthly
 --
 -- 2. Set retention based on:
---    - Regulatory requirements (e.g., HIPAA: 6 years for healthcare)
+--    - Regulatory requirements 
 --    - Business continuity needs
 --    - Storage cost considerations
 --
@@ -346,10 +320,10 @@ WHERE policy_database = 'HEALTHCARE_DEMO';
 -- CLEANUP (Optional)
 -- ============================================================================
 -- To remove demo objects, uncomment and run:
--- DROP BACKUP SET patients_backup_set;
--- DROP BACKUP SET patient_data_schema_backup;
--- DROP BACKUP POLICY daily_backup_policy;
--- DROP BACKUP POLICY manual_backup_policy;
+DROP BACKUP SET patients_backup_set;
+DROP BACKUP SET patient_data_schema_backup;
+DROP BACKUP POLICY daily_backup_policy;
+DROP BACKUP POLICY manual_backup_policy;
 
 -- ============================================================================
 -- DEMO COMPLETE!

@@ -97,12 +97,10 @@ VALUES
 -- ============================================================================
 -- Verify data creation
 -- ============================================================================
-
 -- Show record counts for both tables
 SELECT 'Patients' AS table_name, COUNT(*) AS record_count FROM patients
 UNION ALL
 SELECT 'Medical Records', COUNT(*) FROM medical_records;
-
 -- Display sample data
 SELECT 
     p.patient_id,
@@ -127,3 +125,4 @@ LIMIT 5;
 --   1. Run script 02_backup_demo.sql to learn about Snowflake backups
 --   2. Run script 03_time_travel_demo.sql to learn about Time Travel
 -- ============================================================================
+

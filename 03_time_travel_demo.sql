@@ -85,9 +85,6 @@ FROM patients;
 -- Store timestamp for later use
 SET timestamp_before_changes = (SELECT CURRENT_TIMESTAMP());
 
--- Wait to ensure timestamp separation
-CALL SYSTEM$WAIT(2);
-
 -- Make some changes to the data
 UPDATE patients 
 SET address = '999 Updated Street', city = 'Springfield'
@@ -162,18 +159,18 @@ WHERE patient_id = 5;
 
 -- Find all changes to patients table
 SELECT 
-    CURRENT.patient_id,
-    CURRENT.first_name || ' ' || CURRENT.last_name AS patient_name,
+    PRESENT.patient_id,
+    PRESENT.first_name || ' ' || PRESENT.last_name AS patient_name,
     HISTORICAL.address AS old_address,
-    CURRENT.address AS new_address,
+    PRESENT.address AS new_address,
     HISTORICAL.city AS old_city,
-    CURRENT.city AS new_city
-FROM patients CURRENT
+    PRESENT.city AS new_city
+FROM patients PRESENT
 LEFT JOIN patients AT(TIMESTAMP => $timestamp_before_changes) HISTORICAL
-    ON CURRENT.patient_id = HISTORICAL.patient_id
+    ON PRESENT.patient_id = HISTORICAL.patient_id
 WHERE 
-    CURRENT.address != HISTORICAL.address 
-    OR CURRENT.city != HISTORICAL.city
+    PRESENT.address != HISTORICAL.address 
+    OR PRESENT.city != HISTORICAL.city
     OR HISTORICAL.patient_id IS NULL;  -- New patients
 
 -- ============================================================================
@@ -191,13 +188,12 @@ FROM test_table;
 
 -- Store timestamp before drop
 SET timestamp_before_drop = (SELECT CURRENT_TIMESTAMP());
-CALL SYSTEM$WAIT(2);
 
 -- Accidentally drop the table
 DROP TABLE test_table;
 
 -- Try to query it - this will fail (commented out to avoid error)
--- SELECT * FROM test_table;
+SELECT * FROM test_table;
 
 -- View dropped tables
 SHOW TABLES HISTORY LIKE 'test_table' IN SCHEMA patient_data;
@@ -228,7 +224,6 @@ UNION ALL
 SELECT 'Historical Clone' AS table_type, COUNT(*) AS record_count FROM patients_historical;
 
 -- Cloning is a zero-copy operation initially
--- Data is only physically copied when either table is modified
 -- Great for creating dev/test environments from production
 
 -- Clean up
@@ -250,9 +245,9 @@ FROM medical_records
 WHERE record_id IN (1, 2, 3);
 
 -- Rollback using Time Travel - replace entire table with historical version
-CREATE OR REPLACE TABLE medical_records 
-    CLONE medical_records 
-    AT(TIMESTAMP => $timestamp_before_changes);
+CREATE OR REPLACE TABLE medical_records AS
+SELECT * FROM medical_records 
+AT(TIMESTAMP => $timestamp_before_changes);
 
 -- Verify rollback
 SELECT 'After Rollback' AS status, record_id, diagnosis_description, notes 
@@ -266,7 +261,6 @@ WHERE record_id IN (1, 2, 3);
 
 -- Create a backup timestamp
 SET timestamp_before_mass_delete = (SELECT CURRENT_TIMESTAMP());
-CALL SYSTEM$WAIT(2);
 
 -- Simulate accidental mass deletion
 DELETE FROM medical_records WHERE record_id > 0;  -- Deletes ALL rows
@@ -288,31 +282,23 @@ FROM medical_records;
 -- ============================================================================
 
 -- View query history to see what changed
-SELECT 
-    query_id,
-    query_text,
-    user_name,
-    start_time,
-    rows_inserted,
-    rows_updated,
-    rows_deleted
+SELECT *
 FROM TABLE(INFORMATION_SCHEMA.QUERY_HISTORY())
 WHERE execution_status = 'SUCCESS'
-    AND (rows_inserted > 0 OR rows_updated > 0 OR rows_deleted > 0)
     AND database_name = 'HEALTHCARE_DEMO'
 ORDER BY start_time DESC
 LIMIT 10;
 
 -- View Time Travel storage costs (requires ACCOUNTADMIN)
--- SELECT 
---     table_name,
---     active_bytes / 1024 / 1024 / 1024 AS active_gb,
---     time_travel_bytes / 1024 / 1024 / 1024 AS time_travel_gb,
---     failsafe_bytes / 1024 / 1024 / 1024 AS failsafe_gb
--- FROM snowflake.account_usage.table_storage_metrics
--- WHERE table_catalog = 'HEALTHCARE_DEMO'
---     AND table_schema = 'PATIENT_DATA'
--- ORDER BY time_travel_bytes DESC;
+SELECT 
+     table_name,
+     active_bytes / 1024 / 1024 / 1024 AS active_gb,
+     time_travel_bytes / 1024 / 1024 / 1024 AS time_travel_gb,
+     failsafe_bytes / 1024 / 1024 / 1024 AS failsafe_gb
+ FROM snowflake.account_usage.table_storage_metrics
+ WHERE table_catalog = 'HEALTHCARE_DEMO'
+     AND table_schema = 'PATIENT_DATA'
+ ORDER BY time_travel_bytes DESC;
 
 -- ============================================================================
 -- PART 11: BEST PRACTICES
