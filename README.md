@@ -221,7 +221,7 @@ DROP BACKUP POLICY manual_backup_policy;
 - [Snowflake Backups Documentation](https://docs.snowflake.com/en/user-guide/backups)
 - [Snowflake Time Travel Documentation](https://docs.snowflake.com/en/user-guide/data-time-travel)
 - [Fail-safe Documentation](https://docs.snowflake.com/en/user-guide/data-failsafe)
-- [Storage Costs for Historical Data]((https://docs.snowflake.com/en/user-guide/data-cdp-storage-costs))
+- [Storage Costs for Historical Data](https://docs.snowflake.com/en/user-guide/data-cdp-storage-costs)
 - [Replication and Failover](https://docs.snowflake.com/en/user-guide/replication-intro)
 
 ## 💡 Tips
